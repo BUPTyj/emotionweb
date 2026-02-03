@@ -103,7 +103,6 @@ class TrainingProgressCallback(TrainerCallback):
         """训练结束时的回调"""
         global training_status
         training_status.update({
-            'is_training': False,
             'training_end_time': datetime.now().isoformat(),
             'progress_percent': 100.0
         })
@@ -205,7 +204,7 @@ def train_model_async():
         # 训练参数
         training_args = TrainingArguments(
             output_dir='./results',
-            num_train_epochs=3,
+            num_train_epochs=1,
             per_device_train_batch_size=8,
             per_device_eval_batch_size=16,
             warmup_steps=500,
@@ -219,6 +218,7 @@ def train_model_async():
             eval_steps=200,
             save_steps=200,
             load_best_model_at_end=True,
+            max_steps=200,
         )
 
         # 记录超参数
@@ -371,6 +371,11 @@ def get_training_status(request):
 def training_stream(request):
     """服务器发送事件(SSE)流式传输训练状态"""
 
+    def json_default(obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return str(obj)
+
     def event_stream():
         global training_status
         last_step = -1
@@ -384,7 +389,7 @@ def training_stream(request):
             if (current_step != last_step or
                     current_log_count != last_log_count or
                     not training_status['is_training']):
-                yield f"data: {json.dumps(training_status, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps(training_status, ensure_ascii=False, default=json_default)}\n\n"
                 last_step = current_step
                 last_log_count = current_log_count
 
@@ -437,7 +442,7 @@ def get_training_results(request):
                 'message': '训练尚未完成或没有可用结果'
             })
         else:
-            training_status = TrainingStatus.objects.first()
+            training_status = TrainingStatus.objects.values().first()
             return JsonResponse({
                 'success': True,
                 'data': {
