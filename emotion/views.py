@@ -218,7 +218,6 @@ def train_model_async():
             eval_steps=200,
             save_steps=200,
             load_best_model_at_end=True,
-            max_steps=200,
         )
 
         # 记录超参数
